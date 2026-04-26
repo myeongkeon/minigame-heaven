@@ -1026,7 +1026,9 @@ function runCastle() {
   let started=false, done=false, startTime=0, elapsed=0;
   let combo=0, lastHitTime=0, shake=0;
   let particles=[];
-  const keyCD={};
+  const KEYS=['z','x'];   // only these 2 keys are valid
+  const keyPressed={z:false,x:false};
+  const keyCD={z:0,x:0};  // per-key cooldown (ms)
 
   // Castle pieces — from top to base, each destroyed when hp/MAX_HP <= thresh
   const PIECES = [
@@ -1078,12 +1080,21 @@ function runCastle() {
     shake=28;
   }
 
+  function keyUp(e){
+    const k=e.key.toLowerCase();
+    if(KEYS.includes(k)) keyPressed[k]=false;
+  }
+  document.addEventListener('keyup',keyUp);
+
   function keyDn(e) {
     if(done||e.key==='Escape') return;
+    const k=e.key.toLowerCase();
+    if(!KEYS.includes(k)) return;   // only Z and X
     e.preventDefault();
     const now=Date.now();
-    if(keyCD[e.code]&&now-keyCD[e.code]<150) return;
-    keyCD[e.code]=now;
+    if(now-keyCD[k]<150) return;    // per-key 150ms cooldown
+    keyCD[k]=now;
+    keyPressed[k]=true;
 
     if(!started){started=true;startTime=performance.now();}
 
@@ -1108,6 +1119,7 @@ function runCastle() {
       elapsed=performance.now()-startTime;
       finalExplosion();
       document.removeEventListener('keydown',keyDn);
+      document.removeEventListener('keyup',keyUp);
       setTimeout(()=>showResult(Math.round(elapsed)),2200);
     }
   }
@@ -1259,12 +1271,28 @@ function runCastle() {
       ctx.textAlign='left';
     }
 
+    // Z / X key buttons
+    KEYS.forEach((k,i)=>{
+      const bx=140+i*200, by=590, bw=100, bh=36;
+      const on=keyPressed[k];
+      ctx.fillStyle=on?'#ff0':'#222';
+      ctx.fillRect(bx,by,bw,bh);
+      ctx.strokeStyle=on?'#ff0':'#555';
+      ctx.lineWidth=2;
+      ctx.strokeRect(bx,by,bw,bh);
+      ctx.fillStyle=on?'#000':'#aaa';
+      ctx.font='14px "Press Start 2P"';
+      ctx.textAlign='center';
+      ctx.fillText(k.toUpperCase(),bx+bw/2,by+24);
+    });
+    ctx.textAlign='left';
+
     // Start hint
     if(!started){
       ctx.fillStyle='#0ff';
       ctx.font='8px "Press Start 2P"';
       ctx.textAlign='center';
-      if(Math.floor(Date.now()/500)%2) ctx.fillText('아무 키나 마구 눌러라!!',240,570);
+      if(Math.floor(Date.now()/500)%2) ctx.fillText('Z 와 X 를 번갈아 눌러라!',240,578);
       ctx.textAlign='left';
     }
 
