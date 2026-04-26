@@ -576,19 +576,19 @@ function runTiming() {
 
     if(phase==='running') {
       const now = performance.now()-startTime;
-      const pct = Math.min(now/targetMs,1.5);
+      // Bar oscillates on fixed 800ms period — unrelated to target time
+      const barPct = (Math.sin(now / 400 * Math.PI) + 1) / 2;
 
       ctx.fillStyle='#ff0';
       ctx.font='11px "Press Start 2P"';
       ctx.fillText('목표: '+target.toFixed(3)+'s',240,180);
 
-      // Big timer
+      // Big timer — fixed color, no hint when target passes
       ctx.font='32px "Press Start 2P"';
-      ctx.fillStyle=pct>1?'#f00':'#0ff';
+      ctx.fillStyle='#0ff';
       ctx.fillText((now/1000).toFixed(3)+'s',240,260);
 
-      barPulse = pct;
-      drawBar(Math.min(pct,1), pct>1?'#f00':'#0f0');
+      drawBar(barPct, '#0f0');
 
       ctx.font='9px "Press Start 2P"';
       ctx.fillStyle='#aaa';
