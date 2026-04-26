@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미니게임천국</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#0f0;font-family:'Press Start 2P',monospace;overflow:hidden;width:100vw;height:100vh;display:flex;justify-content:center;align-items:center}
+#app{width:480px;height:640px;background:#000;border:4px solid #0f0;position:relative;overflow:hidden}
+#app::before{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,0,0.03) 2px,rgba(0,255,0,0.03) 4px);pointer-events:none;z-index:9999}
+canvas{display:block}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.screen.active{display:flex}
+.blink{animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.title-main{font-size:22px;color:#ff0;text-align:center;line-height:1.8;text-shadow:0 0 10px #ff0}
+.title-sub{font-size:10px;color:#0ff;margin-top:16px;text-align:center;line-height:2}
+.menu-item{font-size:11px;color:#0f0;padding:12px 20px;margin:6px;border:2px solid #0f0;width:380px;text-align:center;cursor:pointer;transition:all 0.1s}
+.menu-item:hover,.menu-item.selected{background:#0f0;color:#000}
+.menu-item.selected{box-shadow:0 0 8px #0f0}
+h2{font-size:13px;color:#ff0;margin-bottom:20px;text-align:center}
+input[type=text]{background:#000;border:2px solid #0f0;color:#0f0;font-family:'Press Start 2P',monospace;font-size:12px;padding:8px;width:260px;text-align:center;outline:none;margin:10px 0}
+input[type=text]:focus{border-color:#ff0;color:#ff0}
+.char-select{display:flex;gap:16px;margin:12px 0}
+.char-opt{font-size:28px;padding:8px;border:2px solid #333;cursor:pointer;transition:all 0.1s}
+.char-opt:hover,.char-opt.picked{border-color:#ff0;background:#111;transform:scale(1.2)}
+.diff-row{display:flex;gap:10px;margin-top:10px}
+.diff-btn{font-size:10px;padding:10px 16px;border:2px solid #0f0;color:#0f0;background:#000;cursor:pointer;font-family:'Press Start 2P',monospace}
+.diff-btn:hover,.diff-btn.active{background:#0f0;color:#000}
+.diff-btn.hard{border-color:#f00;color:#f00}
+.diff-btn.hard:hover,.diff-btn.hard.active{background:#f00;color:#000}
+.diff-btn.mid{border-color:#ff0;color:#ff0}
+.diff-btn.mid:hover,.diff-btn.mid.active{background:#ff0;color:#000}
+.result-score{font-size:28px;color:#ff0;margin:16px 0;text-shadow:0 0 12px #ff0}
+.result-hi{font-size:10px;color:#0ff;margin:6px 0}
+.game-hud{position:absolute;top:0;left:0;width:100%;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.7);z-index:100;font-size:9px;color:#0f0}
+#gameCanvas{position:absolute;top:0;left:0}
+.pixel-star{color:#ff0;font-size:8px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- TITLE -->
+<div id="scrTitle" class="screen active">
+  <div class="title-main">★ 미니게임천국 ★<br><span style="font-size:12px;color:#0ff">MINI GAME HEAVEN</span></div>
+  <div style="margin:30px 0;font-size:40px">🕹️</div>
+  <div class="title-sub blink">PRESS ENTER TO START</div>
+  <div style="position:absolute;bottom:16px;font-size:7px;color:#555">© 1999 RETRO ARCADE INC.</div>
+</div>
+
+<!-- PROFILE -->
+<div id="scrProfile" class="screen">
+  <h2>▶ PLAYER PROFILE</h2>
+  <div style="font-size:9px;color:#aaa;margin-bottom:16px">닉네임을 입력하세요</div>
+  <input id="nameInput" type="text" maxlength="8" placeholder="PLAYER1">
+  <div style="font-size:9px;color:#aaa;margin:16px 0 8px">캐릭터 선택</div>
+  <div class="char-select" id="charSelect">
+    <div class="char-opt picked" data-c="🐸">🐸</div>
+    <div class="char-opt" data-c="🐱">🐱</div>
+    <div class="char-opt" data-c="🐼">🐼</div>
+    <div class="char-opt" data-c="🤖">🤖</div>
+    <div class="char-opt" data-c="👾">👾</div>
+  </div>
+  <button class="menu-item" id="btnProfileOk" style="margin-top:20px">확인 [ENTER]</button>
+</div>
+
+<!-- GAME SELECT -->
+<div id="scrGameSelect" class="screen">
+  <h2>▶ GAME SELECT</h2>
+  <div id="playerTag" style="font-size:9px;color:#0ff;margin-bottom:16px"></div>
+  <div class="menu-item" data-g="0">
+    <div style="font-size:16px;margin-bottom:4px">☁️ 스카이 클라이머</div>
+    <div style="font-size:7px;color:#aaa">구름을 밟아 하늘 끝까지!</div>
+  </div>
+  <div class="menu-item" data-g="1">
+    <div style="font-size:16px;margin-bottom:4px">⏱️ 타이밍 마스터</div>
+    <div style="font-size:7px;color:#aaa">딱 맞는 그 순간을 잡아라!</div>
+  </div>
+  <div class="menu-item" data-g="2">
+    <div style="font-size:16px;margin-bottom:4px">🎵 리듬스타</div>
+    <div style="font-size:7px;color:#aaa">비트에 맞춰 완벽한 정확도!</div>
+  </div>
+</div>
+
+<!-- DIFFICULTY -->
+<div id="scrDiff" class="screen">
+  <h2 id="diffGameName">▶ DIFFICULTY</h2>
+  <div style="font-size:9px;color:#aaa;margin-bottom:24px">난이도를 선택하세요</div>
+  <div class="diff-row">
+    <button class="diff-btn" data-d="0">하<br><span style="font-size:7px">EASY</span></button>
+    <button class="diff-btn mid" data-d="1">중<br><span style="font-size:7px">NORMAL</span></button>
+    <button class="diff-btn hard" data-d="2">상<br><span style="font-size:7px">HARD</span></button>
+  </div>
+  <div id="diffHiScore" style="font-size:8px;color:#0ff;margin-top:24px"></div>
+  <button class="menu-item" style="margin-top:16px;font-size:9px" id="btnBack">◀ 뒤로가기</button>
+</div>
+
+<!-- GAME CANVAS SCREEN -->
+<div id="scrGame" class="screen" style="padding:0">
+  <div class="game-hud" id="gameHud">
+    <span id="hudLeft"></span>
+    <span id="hudRight"></span>
+  </div>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+</div>
+
+<!-- RESULT -->
+<div id="scrResult" class="screen">
+  <h2>▶ GAME OVER</h2>
+  <div id="resultChar" style="font-size:48px;margin:10px 0"></div>
+  <div id="resultLabel" style="font-size:9px;color:#aaa;margin-bottom:6px"></div>
+  <div class="result-score" id="resultScore"></div>
+  <div class="result-hi" id="resultHi"></div>
+  <div class="result-hi" id="resultRank"></div>
+  <button class="menu-item" id="btnRetry" style="margin-top:20px;font-size:9px">▶ 다시 도전</button>
+  <button class="menu-item" id="btnMenu" style="font-size:9px">◀ 메뉴로</button>
+</div>
+
+</div>
+
+<script>
+// ─── AUDIO ───────────────────────────────────────────────
+const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+function beep(freq, dur, vol=0.3, type='square') {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.connect(g); g.connect(AC.destination);
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + dur);
+  o.start(); o.stop(AC.currentTime + dur);
+}
+
+function playMelody(notes) {
+  let t = AC.currentTime;
+  notes.forEach(([f,d,v=0.25])=>{
+    if(f>0){
+      const o=AC.createOscillator(),g=AC.createGain();
+      o.connect(g);g.connect(AC.destination);
+      o.type='square';o.frequency.value=f;
+      g.gain.setValueAtTime(v,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+d*0.9);
+      o.start(t);o.stop(t+d);
+    }
+    t+=d;
+  });
+}
+
+const MELODY_TITLE = [[523,0.15],[659,0.15],[784,0.15],[1047,0.3],[784,0.15],[880,0.3],[0,0.15],[659,0.15],[784,0.15],[523,0.3]];
+const MELODY_START = [[262,0.1],[330,0.1],[392,0.1],[523,0.2]];
+const MELODY_WIN   = [[523,0.1],[659,0.1],[784,0.1],[1047,0.15],[1047,0.05],[1047,0.3]];
+const MELODY_FAIL  = [[392,0.15],[330,0.15],[262,0.3]];
+
+// ─── STATE ────────────────────────────────────────────────
+let profile = {name:'PLAYER1', char:'🐸'};
+let curGame = 0, curDiff = 1;
+let scores = JSON.parse(localStorage.getItem('mgh_scores')||'{}');
+
+function saveScore(game, diff, val) {
+  const k = `g${game}_d${diff}`;
+  if (!scores[k] || isBetter(game, val, scores[k])) {
+    scores[k] = val;
+    localStorage.setItem('mgh_scores', JSON.stringify(scores));
+    return true;
+  }
+  return false;
+}
+
+function getScore(game, diff) {
+  return scores[`g${game}_d${diff}`] ?? null;
+}
+
+function isBetter(game, a, b) {
+  if (game === 1) return a < b; // timing: lower=better
+  return a > b;
+}
+
+// ─── SCREEN MANAGER ──────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ─── TITLE ───────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  if (document.getElementById('scrTitle').classList.contains('active')) {
+    if (e.key==='Enter') { playMelody(MELODY_START); showScreen('scrProfile'); }
+  }
+});
+document.getElementById('scrTitle').addEventListener('click', ()=>{
+  playMelody(MELODY_START); showScreen('scrProfile');
+});
+
+setTimeout(()=>playMelody(MELODY_TITLE), 500);
+
+// ─── PROFILE ─────────────────────────────────────────────
+document.querySelectorAll('.char-opt').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.char-opt').forEach(x=>x.classList.remove('picked'));
+    el.classList.add('picked');
+    profile.char = el.dataset.c;
+    beep(880,0.05);
+  });
+});
+
+function goToGameSelect() {
+  const n = document.getElementById('nameInput').value.trim();
+  profile.name = n || 'PLAYER1';
+  profile.char = document.querySelector('.char-opt.picked').dataset.c;
+  document.getElementById('playerTag').textContent = profile.char + ' ' + profile.name;
+  showScreen('scrGameSelect');
+  beep(660,0.08);
+}
+
+document.getElementById('btnProfileOk').addEventListener('click', goToGameSelect);
+document.getElementById('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') goToGameSelect(); });
+
+// ─── GAME SELECT ─────────────────────────────────────────
+const GAME_NAMES = ['☁️ 스카이 클라이머','⏱️ 타이밍 마스터','🎵 리듬스타'];
+document.querySelectorAll('[data-g]').forEach(el=>{
+  el.addEventListener('click',()=>{
+    curGame = +el.dataset.g;
+    document.getElementById('diffGameName').textContent = '▶ '+GAME_NAMES[curGame];
+    updateDiffScreen();
+    showScreen('scrDiff');
+    beep(660,0.08);
+  });
+});
+
+function updateDiffScreen() {
+  const hi = getScore(curGame, curDiff);
+  const labels = ['','',''];
+  const units = ['m','ms 오차','%'];
+  document.getElementById('diffHiScore').textContent =
+    hi !== null ? `최고기록: ${hi}${units[curGame]}` : '최고기록: 없음';
+}
+
+document.querySelectorAll('[data-d]').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('[data-d]').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    curDiff = +el.dataset.d;
+    updateDiffScreen();
+    beep(660,0.08);
+    setTimeout(()=>startGame(), 300);
+  });
+});
+
+document.getElementById('btnBack').addEventListener('click',()=>{
+  showScreen('scrGameSelect'); beep(440,0.05);
+});
+
+// ─── RESULT ──────────────────────────────────────────────
+document.getElementById('btnRetry').addEventListener('click',()=>{
+  beep(660,0.08); startGame();
+});
+document.getElementById('btnMenu').addEventListener('click',()=>{
+  beep(440,0.05); showScreen('scrGameSelect');
+});
+
+function showResult(score) {
+  const units = ['m','ms','%'];
+  const labels = ['도달 높이','오차 시간','정확도'];
+  const isNew = saveScore(curGame, curDiff, score);
+  const hi = getScore(curGame, curDiff);
+
+  document.getElementById('resultChar').textContent = profile.char;
+  document.getElementById('resultLabel').textContent = labels[curGame];
+  document.getElementById('resultScore').textContent = score + units[curGame];
+  document.getElementById('resultHi').textContent = `최고기록: ${hi}${units[curGame]}`;
+  document.getElementById('resultRank').textContent = isNew ? '★ NEW RECORD! ★' : '';
+  document.getElementById('resultRank').style.color = '#ff0';
+
+  showScreen('scrResult');
+  if (isNew) playMelody(MELODY_WIN);
+  else playMelody(MELODY_FAIL);
+}
+
+// ─── GAME ENGINE ─────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let animId = null;
+
+function stopGame() {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  canvas.onkeydown = null;
+}
+
+function startGame() {
+  stopGame();
+  showScreen('scrGame');
+  playMelody(MELODY_START);
+  canvas.width = 480; canvas.height = 640;
+  if (curGame === 0) runClimber();
+  else if (curGame === 1) runTiming();
+  else runRhythm();
+}
+
+// ════════════════════════════════════════════════════════
+// GAME 1: SKY CLIMBER
+// ════════════════════════════════════════════════════════
+function runClimber() {
+  const DIFF = [{grav:0.35,spd:3,plat:90,obs:0.002},{grav:0.45,spd:4,plat:75,obs:0.005},{grav:0.6,spd:5.5,plat:58,obs:0.01}][curDiff];
+
+  let player = {x:220,y:540,vx:0,vy:-10,w:24,h:24,onGround:false};
+  let cameraY = 0, score = 0, maxScore = 0;
+  let keys = {};
+  let platforms = [], obstacles = [];
+  let particles = [];
+  let dead = false, gameOver = false;
+  let bgStars = Array.from({length:40},()=>({x:Math.random()*480,y:Math.random()*640,s:Math.random()*2+1}));
+
+  // Initial platforms
+  platforms.push({x:200,y:580,w:80,type:'cloud'});
+  for(let i=0;i<8;i++) genPlatform(500-i*70);
+
+  function genPlatform(y) {
+    const x = Math.random()*(480-80);
+    const w = 60+Math.random()*40;
+    platforms.push({x,y,w,type:Math.random()<0.15?'move':'cloud',dx:(Math.random()-0.5)*2,dy:0});
+    if (Math.random()<DIFF.obs) obstacles.push({x:x+w/2,y:y-20,vx:(Math.random()-0.5)*3,vy:0,type:Math.random()<0.5?'bird':'spike'});
+  }
+
+  function keyDn(e){keys[e.key]=true; if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();}
+  function keyUp(e){keys[e.key]=false;}
+  document.addEventListener('keydown',keyDn);
+  document.addEventListener('keyup',keyUp);
+
+  function drawPixelChar(x,y,dead) {
+    ctx.font='22px serif';
+    ctx.save();
+    if(dead){ctx.globalAlpha=0.5;}
+    ctx.fillText(profile.char,x-11,y+11);
+    ctx.restore();
+  }
+
+  function drawCloud(px,py,pw) {
+    ctx.fillStyle='#0ff';
+    ctx.fillRect(px,py,pw,12);
+    ctx.fillStyle='#fff';
+    ctx.fillRect(px+2,py-4,pw-4,8);
+    // pixel bumps
+    for(let i=0;i<3;i++){
+      ctx.fillRect(px+8+i*Math.floor((pw-20)/3),py-8,12,8);
+    }
+  }
+
+  function update() {
+    if(gameOver) return;
+
+    // Input
+    if(keys['ArrowLeft']||keys['a']){player.vx=-DIFF.spd;}
+    else if(keys['ArrowRight']||keys['d']){player.vx=DIFF.spd;}
+    else player.vx*=0.7;
+
+    player.vy += DIFF.grav;
+    player.x += player.vx;
+    player.y += player.vy;
+
+    // Wrap
+    if(player.x<-12) player.x=480;
+    if(player.x>480) player.x=-12;
+
+    // Platform collision (only going down)
+    if(player.vy>0) {
+      for(let p of platforms){
+        const py = p.y - cameraY;
+        if(player.x+player.w > p.x && player.x < p.x+p.w &&
+           player.y+player.h > py && player.y+player.h < py+20) {
+          player.y = py - player.h;
+          player.vy = -10 - curDiff*1.5;
+          beep(220+Math.random()*100,0.04,0.15);
+          for(let i=0;i<5;i++) particles.push({x:player.x+12,y:player.y+player.h,vx:(Math.random()-0.5)*4,vy:-Math.random()*3,life:20,col:'#0ff'});
+        }
+      }
+    }
+
+    // Camera
+    const screenY = player.y - cameraY;
+    if(screenY < 200) { cameraY -= (200 - screenY)*0.1; }
+
+    // Score
+    score = Math.max(score, Math.round((600-player.y+cameraY)/10));
+    maxScore = Math.max(maxScore, score);
+
+    // Generate more platforms
+    const highestPlat = Math.min(...platforms.map(p=>p.y));
+    while(highestPlat > cameraY - 100) genPlatform(highestPlat - DIFF.plat);
+
+    // Remove off-screen platforms
+    platforms = platforms.filter(p => p.y < cameraY + 700);
+    obstacles = obstacles.filter(o => o.y < cameraY + 700);
+
+    // Move platforms
+    platforms.forEach(p=>{
+      if(p.type==='move'){
+        p.x+=p.dx;
+        if(p.x<0||p.x>400) p.dx*=-1;
+      }
+    });
+
+    // Obstacles
+    obstacles.forEach(o=>{
+      if(o.type==='bird'){o.x+=o.vx*1.5;}
+      const ox=o.x, oy=o.y-cameraY;
+      if(Math.abs(ox-player.x-12)<20&&Math.abs(oy-player.y-12)<20) dead=true;
+    });
+
+    // Particles
+    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});
+    particles=particles.filter(p=>p.life>0);
+
+    // Fall death
+    if(player.y - cameraY > 700) dead = true;
+
+    if(dead) {
+      gameOver = true;
+      beep(200,0.4,0.3);
+      setTimeout(()=>{
+        document.removeEventListener('keydown',keyDn);
+        document.removeEventListener('keyup',keyUp);
+        showResult(maxScore);
+      },1000);
+    }
+  }
+
+  function draw() {
+    // BG gradient
+    ctx.fillStyle='#000010';
+    ctx.fillRect(0,0,480,640);
+
+    // Stars
+    ctx.fillStyle='#fff';
+    bgStars.forEach(s=>{ctx.fillRect(s.x,(s.y-cameraY*0.3)%640,s.s,s.s);});
+
+    // Platforms
+    platforms.forEach(p=>{
+      const py = p.y - cameraY;
+      if(py>-20&&py<660) drawCloud(p.x,py,p.w);
+    });
+
+    // Obstacles
+    obstacles.forEach(o=>{
+      const oy=o.y-cameraY;
+      if(oy<-10||oy>650) return;
+      ctx.font='18px serif';
+      ctx.fillText(o.type==='bird'?'🦅':'⚡',o.x-9,oy);
+    });
+
+    // Particles
+    particles.forEach(p=>{
+      ctx.fillStyle=p.col;
+      ctx.globalAlpha=p.life/20;
+      ctx.fillRect(p.x,p.y,4,4);
+    });
+    ctx.globalAlpha=1;
+
+    // Player
+    drawPixelChar(player.x, player.y-cameraY, dead);
+
+    // HUD
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(0,0,480,36);
+    ctx.fillStyle='#0f0';
+    ctx.font='9px "Press Start 2P"';
+    ctx.fillText(`HEIGHT: ${score}m`,8,22);
+    ctx.fillText(`BEST: ${maxScore}m`,300,22);
+
+    if(dead){
+      ctx.fillStyle='rgba(0,0,0,0.7)';
+      ctx.fillRect(0,270,480,100);
+      ctx.fillStyle='#f00';
+      ctx.font='16px "Press Start 2P"';
+      ctx.fillText('GAME OVER',160,310);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    animId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ════════════════════════════════════════════════════════
+// GAME 2: TIMING MASTER
+// ════════════════════════════════════════════════════════
+function runTiming() {
+  const DIFF_CFG = [{min:2,max:6},{min:3,max:9},{min:4,max:12}][curDiff];
+  const target = (DIFF_CFG.min + Math.random()*(DIFF_CFG.max-DIFF_CFG.min));
+  const targetMs = Math.round(target*1000);
+
+  let phase = 'ready'; // ready→running→done
+  let startTime = 0, elapsed = 0, diff = 0;
+  let countdown = 3, lastCnt = 3, cntStart = 0;
+  let tapY = -1, tapAnim = 0;
+  let barPulse = 0;
+
+  // Tick sound
+  let tickInterval = null;
+  function startTick() {
+    tickInterval = setInterval(()=>{
+      if(phase==='running') beep(880,0.02,0.08);
+    },100);
+  }
+
+  function keyDn(e) {
+    if(e.code==='Space') {
+      e.preventDefault();
+      if(phase==='ready'||phase==='countdown') {
+        phase='running';
+        startTime=performance.now();
+        startTick();
+        beep(660,0.05,0.2);
+      } else if(phase==='running') {
+        elapsed=performance.now()-startTime;
+        diff=Math.abs(elapsed-targetMs);
+        phase='done';
+        clearInterval(tickInterval);
+        tapY=320; tapAnim=60;
+        if(diff<50) playMelody(MELODY_WIN);
+        else beep(440,0.1);
+        setTimeout(()=>{
+          document.removeEventListener('keydown',keyDn);
+          showResult(Math.round(diff));
+        },1500);
+      }
+    }
+  }
+  document.addEventListener('keydown',keyDn);
+
+  function drawBar(pct, color) {
+    const bx=40,by=300,bw=400,bh=30;
+    ctx.strokeStyle=color;
+    ctx.lineWidth=2;
+    ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle=color;
+    ctx.globalAlpha=0.2;
+    ctx.fillRect(bx,by,bw*pct,bh);
+    ctx.globalAlpha=1;
+    ctx.fillRect(bx,by,bw*pct,bh*0.3);
+  }
+
+  function draw() {
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,480,640);
+
+    // Grid bg
+    ctx.strokeStyle='rgba(0,255,0,0.05)';
+    ctx.lineWidth=1;
+    for(let i=0;i<480;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,640);ctx.stroke();}
+    for(let i=0;i<640;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(480,i);ctx.stroke();}
+
+    ctx.textAlign='center';
+
+    if(phase==='ready') {
+      ctx.fillStyle='#ff0';
+      ctx.font='11px "Press Start 2P"';
+      ctx.fillText('목표 시간',240,180);
+      ctx.font='36px "Press Start 2P"';
+      ctx.fillStyle='#0ff';
+      ctx.fillText(target.toFixed(3)+'s',240,240);
+      ctx.font='9px "Press Start 2P"';
+      ctx.fillStyle='#0f0';
+      const b = Math.sin(Date.now()/300)>0;
+      if(b) ctx.fillText('SPACE 키로 타이머 시작',240,420);
+      ctx.fillText('다시 SPACE를 눌러 정지!',240,450);
+    }
+
+    if(phase==='running') {
+      const now = performance.now()-startTime;
+      const pct = Math.min(now/targetMs,1.5);
+
+      ctx.fillStyle='#ff0';
+      ctx.font='11px "Press Start 2P"';
+      ctx.fillText('목표: '+target.toFixed(3)+'s',240,180);
+
+      // Big timer
+      ctx.font='32px "Press Start 2P"';
+      ctx.fillStyle=pct>1?'#f00':'#0ff';
+      ctx.fillText((now/1000).toFixed(3)+'s',240,260);
+
+      barPulse = pct;
+      drawBar(Math.min(pct,1), pct>1?'#f00':'#0f0');
+
+      ctx.font='9px "Press Start 2P"';
+      ctx.fillStyle='#aaa';
+      const b = Math.sin(Date.now()/200)>0;
+      if(b) ctx.fillText('▶▶ SPACE 눌러서 정지! ◀◀',240,380);
+    }
+
+    if(phase==='done') {
+      const pct = Math.min(elapsed/targetMs,1.5);
+      ctx.fillStyle='#ff0';
+      ctx.font='11px "Press Start 2P"';
+      ctx.fillText('목표: '+target.toFixed(3)+'s',240,120);
+      ctx.fillText('기록: '+(elapsed/1000).toFixed(3)+'s',240,160);
+
+      drawBar(Math.min(pct,1), diff<100?'#0f0':diff<500?'#ff0':'#f00');
+
+      ctx.font='11px "Press Start 2P"';
+      ctx.fillStyle='#0ff';
+      ctx.fillText('오차: '+diff+'ms',240,360);
+
+      let grade='';
+      if(diff<30)grade='★ PERFECT ★';
+      else if(diff<100)grade='GREAT!';
+      else if(diff<300)grade='GOOD';
+      else if(diff<600)grade='OK';
+      else grade='MISS';
+
+      ctx.font='18px "Press Start 2P"';
+      ctx.fillStyle=diff<30?'#ff0':diff<100?'#0f0':'#f00';
+      ctx.fillText(grade,240,420);
+    }
+
+    ctx.textAlign='left';
+  }
+
+  function loop() {
+    draw();
+    animId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// ════════════════════════════════════════════════════════
+// GAME 3: RHYTHM STAR
+// ════════════════════════════════════════════════════════
+function runRhythm() {
+  const DIFF_CFG = [{speed:3,interval:700,count:20},{speed:5,interval:500,count:30},{speed:7,interval:350,count:40}][curDiff];
+
+  const LANES = [
+    {key:'a',label:'A',color:'#f00',x:60},
+    {key:'s',label:'S',color:'#ff0',x:160},
+    {key:'d',label:'D',color:'#0f0',x:260},
+    {key:'f',label:'F',color:'#0ff',x:360},
+  ];
+  const NOTE_W=60, HIT_Y=540, PERFECT_R=30, GOOD_R=60;
+
+  let notes=[], pressed={}, effects=[];
+  let total=0, hits=0, perfects=0, combo=0, maxCombo=0;
+  let done=false, startT=performance.now();
+  let lastNote=0, noteCount=0;
+  let bgBeat=0;
+
+  // Generate rhythm pattern
+  const PATTERN = [];
+  for(let i=0;i<DIFF_CFG.count;i++) {
+    PATTERN.push({lane:Math.floor(Math.random()*4), t: 1000+i*DIFF_CFG.interval + (Math.random()-0.5)*DIFF_CFG.interval*0.3});
+  }
+  PATTERN.sort((a,b)=>a.t-b.t);
+
+  // BGM
+  let bgmNotes = [];
+  const scale = [262,294,330,349,392,440,494,523];
+  for(let i=0;i<32;i++) bgmNotes.push([scale[Math.floor(Math.random()*scale.length)],0.15+Math.random()*0.1,0.08]);
+  setTimeout(()=>playMelody(bgmNotes),200);
+
+  function keyDn(e) {
+    const k=e.key.toLowerCase();
+    pressed[k]=true;
+    const lane=LANES.findIndex(l=>l.key===k);
+    if(lane<0) return;
+    e.preventDefault();
+
+    // Find nearest note in this lane
+    const now=performance.now()-startT;
+    const note=notes.find(n=>n.lane===lane&&!n.hit&&Math.abs(n.t-now)<GOOD_R*2);
+    if(note){
+      const dt=Math.abs(note.t-now);
+      note.hit=true;
+      hits++;
+      combo++;
+      maxCombo=Math.max(maxCombo,combo);
+      const isPerfect=dt<PERFECT_R;
+      if(isPerfect){perfects++;beep(LANES[lane].color==='#f00'?523:LANES[lane].color==='#ff0'?659:LANES[lane].color==='#0f0'?784:1047,0.08,0.2);}
+      else beep(440,0.06,0.15);
+      effects.push({x:LANES[lane].x+NOTE_W/2,y:HIT_Y,text:isPerfect?'PERFECT!':'GOOD',col:isPerfect?'#ff0':'#0f0',life:40});
+    } else {
+      combo=0;
+      beep(200,0.05,0.1);
+      effects.push({x:LANES[lane].x+NOTE_W/2,y:HIT_Y-20,text:'MISS',col:'#f00',life:30});
+    }
+  }
+  function keyUp(e){pressed[e.key.toLowerCase()]=false;}
+  document.addEventListener('keydown',keyDn);
+  document.addEventListener('keyup',keyUp);
+
+  function update() {
+    if(done) return;
+    const now=performance.now()-startT;
+    bgBeat = now;
+
+    // Spawn notes from pattern
+    while(noteCount<PATTERN.length && PATTERN[noteCount].t - now < 640/DIFF_CFG.speed*1000/60) {
+      notes.push({lane:PATTERN[noteCount].lane, t:PATTERN[noteCount].t, hit:false, miss:false, spawned:true});
+      total++;
+      noteCount++;
+    }
+
+    // Move notes
+    notes.forEach(n=>{
+      n.y = (now - n.t) * DIFF_CFG.speed / 1000 * 60 + HIT_Y;
+      if(!n.hit && n.y > HIT_Y + GOOD_R*2) { n.miss=true; combo=0; }
+    });
+    notes=notes.filter(n=>n.y<HIT_Y+100);
+
+    effects.forEach(ef=>ef.life--);
+    effects=effects.filter(ef=>ef.life>0);
+
+    if(noteCount>=PATTERN.length && notes.filter(n=>!n.hit).length===0) {
+      done=true;
+      const acc=total>0?Math.round(hits/total*100):0;
+      document.removeEventListener('keydown',keyDn);
+      document.removeEventListener('keyup',keyUp);
+      setTimeout(()=>showResult(acc),800);
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,480,640);
+
+    // BG pulse
+    const pulse=Math.sin(bgBeat/200)*10;
+    ctx.strokeStyle='rgba(0,255,0,0.04)';
+    for(let i=0;i<5;i++){
+      ctx.strokeRect(40-i*8+pulse/2,40-i*8+pulse/2,400+i*16-pulse,560+i*16-pulse);
+    }
+
+    // Lane bg
+    LANES.forEach(l=>{
+      ctx.fillStyle=pressed[l.key]?l.color+'33':'#111';
+      ctx.fillRect(l.x,50,NOTE_W,500);
+      // Lane dividers
+      ctx.strokeStyle='#222';
+      ctx.lineWidth=1;
+      ctx.strokeRect(l.x,50,NOTE_W,500);
+    });
+
+    // Hit line
+    LANES.forEach(l=>{
+      ctx.fillStyle=pressed[l.key]?l.color:'#333';
+      ctx.fillRect(l.x,HIT_Y-5,NOTE_W,10);
+    });
+
+    // Notes
+    notes.forEach(n=>{
+      if(n.hit||n.miss) return;
+      const l=LANES[n.lane];
+      const gy=n.y-40;
+      // Glow
+      ctx.shadowColor=l.color;
+      ctx.shadowBlur=8;
+      ctx.fillStyle=l.color;
+      ctx.fillRect(l.x+4,gy,NOTE_W-8,20);
+      ctx.fillStyle='#fff';
+      ctx.fillRect(l.x+6,gy+2,NOTE_W-12,4);
+      ctx.shadowBlur=0;
+    });
+
+    // Key labels at bottom
+    LANES.forEach(l=>{
+      ctx.fillStyle=pressed[l.key]?l.color:'#333';
+      ctx.fillRect(l.x,HIT_Y+20,NOTE_W,50);
+      ctx.fillStyle=pressed[l.key]?'#000':'#aaa';
+      ctx.font='14px "Press Start 2P"';
+      ctx.textAlign='center';
+      ctx.fillText(l.label.toUpperCase(),l.x+NOTE_W/2,HIT_Y+52);
+    });
+    ctx.textAlign='left';
+
+    // Effects
+    effects.forEach(ef=>{
+      ctx.globalAlpha=ef.life/40;
+      ctx.fillStyle=ef.col;
+      ctx.font='9px "Press Start 2P"';
+      ctx.textAlign='center';
+      ctx.fillText(ef.text,ef.x,ef.y-20+((40-ef.life)*0.5));
+    });
+    ctx.globalAlpha=1;
+    ctx.textAlign='left';
+
+    // HUD
+    ctx.fillStyle='rgba(0,0,0,0.8)';
+    ctx.fillRect(0,0,480,44);
+    ctx.fillStyle='#0f0';
+    ctx.font='9px "Press Start 2P"';
+    const acc=total>0?Math.round(hits/total*100):100;
+    ctx.fillText(`ACC: ${acc}%`,8,22);
+    ctx.fillText(`COMBO: ${combo}`,200,22);
+    ctx.fillText(`BEST: ${maxCombo}`,340,22);
+
+    // Progress bar
+    const prog=noteCount/PATTERN.length;
+    ctx.fillStyle='#222';
+    ctx.fillRect(0,36,480,6);
+    ctx.fillStyle='#0f0';
+    ctx.fillRect(0,36,480*prog,6);
+  }
+
+  function loop() {
+    update();
+    draw();
+    animId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+</script>
+</body>
+</html>
