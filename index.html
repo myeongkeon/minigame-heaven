@@ -789,7 +789,7 @@ function runRhythm() {
     notes.forEach(n=>{
       if(n.hit||n.miss) return;
       const l=LANES[n.lane];
-      const gy=n.y-40;
+      const gy=n.y-20; // bottom of note aligns with hit line at n.y=HIT_Y
       // Glow
       ctx.shadowColor=l.color;
       ctx.shadowBlur=8;
