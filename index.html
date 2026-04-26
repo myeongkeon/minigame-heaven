@@ -387,8 +387,11 @@ function runClimber() {
     maxScore = Math.max(maxScore, score);
 
     // Generate more platforms
-    const highestPlat = Math.min(...platforms.map(p=>p.y));
-    while(highestPlat > cameraY - 100) genPlatform(highestPlat - DIFF.plat);
+    let highestPlat = Math.min(...platforms.map(p=>p.y));
+    while(highestPlat > cameraY - 100) {
+      genPlatform(highestPlat - DIFF.plat);
+      highestPlat -= DIFF.plat;
+    }
 
     // Remove off-screen platforms
     platforms = platforms.filter(p => p.y < cameraY + 700);
