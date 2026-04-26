@@ -857,28 +857,31 @@ function runRhythm() {
 // GAME 4: MAZE FINDER
 // ════════════════════════════════════════════════════════
 function runMaze() {
-  const S = [11,17,25][curDiff]; // odd size so DFS cells land on odd coords
+  // 하=17, 중=27, 상=41 — Prim's creates many branches/dead-ends vs DFS
+  const S = [17,27,41][curDiff];
+  const TRAIL_LIFE = [60,20,0][curDiff]; // 상 난이도: 발자국 없음
   const CELL = Math.floor(460/S);
   const OX = Math.floor((480-S*CELL)/2);
   const OY = 50;
 
-  // ── Maze generation (DFS iterative) ──
+  // ── Maze generation: Prim's algorithm ──
+  // Grows from many frontier points → many branches, many dead-ends
   function buildMaze() {
     const g = Array.from({length:S},()=>Array(S).fill(0));
-    const vis = Array.from({length:S},()=>Array(S).fill(false));
-    const stack=[[1,1]];
-    g[1][1]=1; vis[1][1]=true;
-    while(stack.length){
-      const [cx,cy]=stack[stack.length-1];
-      const dirs=[[0,-2],[2,0],[0,2],[-2,0]]
-        .filter(([dx,dy])=>{const nx=cx+dx,ny=cy+dy;return nx>0&&nx<S-1&&ny>0&&ny<S-1&&!vis[ny][nx];})
-        .sort(()=>Math.random()-0.5);
-      if(dirs.length){
-        const [dx,dy]=dirs[0];
-        g[cy+dy/2][cx+dx/2]=1;
-        const nx=cx+dx,ny=cy+dy;
-        g[ny][nx]=1; vis[ny][nx]=true; stack.push([nx,ny]);
-      } else stack.pop();
+    g[1][1]=1;
+    const front=[];
+    const push=(wx,wy,fx,fy)=>{
+      if(wx>0&&wx<S-1&&wy>0&&wy<S-1&&g[wy][wx]===0) front.push([wx,wy,fx,fy]);
+    };
+    push(3,1,1,1); push(1,3,1,1);
+    while(front.length){
+      const i=Math.floor(Math.random()*front.length);
+      const [wx,wy,fx,fy]=front.splice(i,1)[0];
+      if(g[wy][wx]===1) continue;
+      g[wy][wx]=1;
+      g[fy+(wy-fy)/2][fx+(wx-fx)/2]=1;
+      push(wx+2,wy,wx,wy); push(wx-2,wy,wx,wy);
+      push(wx,wy+2,wx,wy); push(wx,wy-2,wx,wy);
     }
     return g;
   }
@@ -888,7 +891,7 @@ function runMaze() {
   const gx=S-2, gy=S-2;
   let started=false, done=false;
   let startTime=0, elapsed=0;
-  let trail=[]; // footstep trail
+  let trail=[];
 
   function keyDn(e){
     if(done) return;
@@ -902,7 +905,7 @@ function runMaze() {
     if(!started){started=true;startTime=performance.now();}
     const nx=px+dx,ny=py+dy;
     if(nx>=0&&nx<S&&ny>=0&&ny<S&&maze[ny][nx]===1){
-      trail.push({x:px,y:py,life:30});
+      if(TRAIL_LIFE>0) trail.push({x:px,y:py,life:TRAIL_LIFE});
       px=nx; py=ny;
       beep(300+Math.random()*200,0.04,0.08);
       if(px===gx&&py===gy){
@@ -937,7 +940,7 @@ function runMaze() {
 
     // Trail
     trail.forEach(t=>{
-      ctx.globalAlpha=t.life/30*0.4;
+      ctx.globalAlpha=t.life/TRAIL_LIFE*0.4;
       ctx.fillStyle='#0ff';
       ctx.fillRect(OX+t.x*CELL+2,OY+t.y*CELL+2,CELL-4,CELL-4);
       t.life--;
